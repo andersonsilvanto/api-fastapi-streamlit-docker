@@ -1,4 +1,4 @@
- # app_v2
+# app_v2
 
 Aplicação de exemplo com API FastAPI, interface Streamlit e PostgreSQL.
 
@@ -17,6 +17,8 @@ permitir hot-reload. Endpoints disponíveis:
 - FastAPI: <http://localhost:8001> (documentação em `/docs`)
 - PostgreSQL: `localhost:5433`
 
-As credenciais e o nome padrão do banco são `postgres`, `postgres` e
-`devops_v2_db`. Podem ser substituídos por variáveis de ambiente ou por um
-arquivo `.env` local.
+Antes de executar, pode copiar `.env.example` para `.env` e substituir os
+valores de exemplo. O Compose usa `POSTGRES_USER`, `POSTGRES_PASSWORD` e
+`POSTGRES_DB`; o `.env` local é ignorado pelo Git, enquanto `.env.example` é
+versionado. Nunca use valores de exemplo ou credenciais de desenvolvimento em
+produção.
