@@ -1,0 +1,60 @@
+services:
+  db_v2:
+    image: postgres:15-alpine
+    container_name: postgres_app_v2
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-devops_v2_db}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_v2:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  backend_v2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi_app_v2
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db_v2:5432/${POSTGRES_DB:-devops_v2_db}
+    depends_on:
+      db_v2:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend_v2:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: streamlit_app_v2
+    restart: unless-stopped
+    ports:
+      - "8502:8501"
+    environment:
+      API_BASE_URL: http://backend_v2:8000
+    depends_on:
+      backend_v2:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+
+volumes:
+  pgdata_v2:
