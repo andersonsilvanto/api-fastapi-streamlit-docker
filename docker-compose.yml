@@ -39,11 +39,15 @@ services:
       db_v2:
         condition: service_healthy
       opensearch:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./:/app
+    networks:
+      default:
+        aliases:
+          - backend
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/').read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/metrics').read()"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -64,6 +68,12 @@ services:
         condition: service_healthy
     volumes:
       - ./:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.17.1
@@ -81,6 +91,11 @@ services:
   prometheus:
     image: prom/prometheus:v2.54.1
     restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+      - "--enable-feature=remote-write-receiver"
     ports:
       - "9091:9090"
     volumes:
@@ -90,6 +105,24 @@ services:
       backend_v2:
         condition: service_healthy
       postgres-exporter:
+        condition: service_started
+
+  k6:
+    image: grafana/k6:latest
+    profiles:
+      - k6
+    environment:
+      API_BASE: ${API_BASE:-http://backend:8000}
+      K6_OUT: experimental-prometheus-rw
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_PUSH_INTERVAL: 5s
+    volumes:
+      - ./k6:/scripts:ro
+    command: run /scripts/test_basico.js
+    depends_on:
+      backend_v2:
+        condition: service_healthy
+      prometheus:
         condition: service_started
 
   opensearch:
@@ -103,6 +136,12 @@ services:
       - "9201:9200"
     expose:
       - "9600"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9200/ >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
 
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:2

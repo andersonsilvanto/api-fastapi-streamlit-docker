@@ -1,0 +1,16 @@
+# IstioOperator install configuration consumed by istioctl; this is not applied
+# with kubectl. Install with:
+#   istioctl install --set profile=demo -f k8s/istio/install-istio.yaml -y
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+spec:
+  profile: demo
+  meshConfig:
+    accessLogFile: /dev/stdout
+    enableTracing: true
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true

@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-test-script
+  namespace: app
+data:
+  test_basico.js: |
+    import http from "k6/http";
+    import { check } from "k6";
+
+    const API_BASE = (__ENV.API_BASE || "http://backend:8000").replace(/\/+$/, "");
+
+    export const options = {
+      stages: [
+        { duration: "30s", target: 1 },
+        { duration: "1m", target: 5 },
+        { duration: "30s", target: 0 },
+      ],
+      thresholds: {
+        http_req_duration: ["p(95)<500"],
+        http_req_failed: ["rate<0.01"],
+      },
+    };
+
+    export default function () {
+      const response = http.get(`${API_BASE}/`);
+      check(response, {
+        "API responds with HTTP 200": (res) => res.status === 200,
+      });
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-load-test
+  namespace: app
+  labels:
+    app: k6
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: k6
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:latest
+          args:
+            - run
+            - /scripts/test_basico.js
+          env:
+            - name: API_BASE
+              value: http://backend:8000
+            - name: K6_OUT
+              value: experimental-prometheus-rw
+            - name: K6_PROMETHEUS_RW_SERVER_URL
+              value: http://prometheus:9090/api/v1/write
+            - name: K6_PROMETHEUS_RW_PUSH_INTERVAL
+              value: 5s
+          volumeMounts:
+            - name: test-script
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: test-script
+          configMap:
+            name: k6-test-script

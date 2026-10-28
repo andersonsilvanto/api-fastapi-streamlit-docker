@@ -1,0 +1,13 @@
+# Kiali is installed from the addon manifest shipped with the matching Istio
+# release, rather than applied as an IstioOperator component:
+#
+#   kubectl apply -f "$env:ISTIO_HOME/samples/addons/kiali.yaml"
+#   kubectl rollout status deployment/kiali -n istio-system --timeout=180s
+#
+# Open the dashboard using either command:
+#
+#   istioctl dashboard kiali
+#   kubectl port-forward -n istio-system service/kiali 20001:20001
+#
+# Then browse to http://localhost:20001. Select the app namespace and a time
+# range after generating traffic to view the service graph.

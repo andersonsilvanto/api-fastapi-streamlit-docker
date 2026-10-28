@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: app-gateway
+  namespace: app
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: app-frontend
+  namespace: app
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-gateway
+  http:
+    - route:
+        - destination:
+            host: frontend.app.svc.cluster.local
+            port:
+              number: 8501

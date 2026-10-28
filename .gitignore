@@ -1,10 +1,50 @@
+# Environment files and secrets
 .env
 .env.*
 !.env.example
+
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+.Python
 .venv/
 venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local databases and persistent service data
+*.db
+*.sqlite
+*.sqlite3
+pgdata*/
+postgres_data/
+prometheus_data/
+grafana_data/
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files and logs
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+*~
