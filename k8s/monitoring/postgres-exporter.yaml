@@ -22,8 +22,13 @@ spec:
             - name: metrics
               containerPort: 9187
           env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_DB
             - name: DATA_SOURCE_URI
-              value: postgres:5432/appdb?sslmode=disable
+              value: postgres:5432/$(POSTGRES_DB)?sslmode=disable
             - name: DATA_SOURCE_USER
               valueFrom:
                 secretKeyRef:

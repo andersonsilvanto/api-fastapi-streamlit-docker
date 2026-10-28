@@ -91,20 +91,20 @@ foreach ($line in $unmanagedLines) {
     $parts = @($entry -split "\s+")
     if ($parts.Count -lt 2) { continue }
 
-    foreach ($host in $managedHosts) {
-        if ($parts[1..($parts.Count - 1)] -contains $host) {
+    foreach ($hostname in $managedHosts) {
+        if ($parts[1..($parts.Count - 1)] -contains $hostname) {
             if ($parts[0] -ne "127.0.0.1") {
-                throw "O hostname $host já está associado a $($parts[0]) fora da secção gerida. Corrija essa entrada manualmente."
+                throw "O hostname $hostname já está associado a $($parts[0]) fora da secção gerida. Corrija essa entrada manualmente."
             }
-            $existingHosts[$host] = $true
+            $existingHosts[$hostname] = $true
         }
     }
 }
 
 $newEntries = @(
-    foreach ($host in $managedHosts) {
-        if (-not $existingHosts.ContainsKey($host)) {
-            "127.0.0.1`t$host"
+    foreach ($hostname in $managedHosts) {
+        if (-not $existingHosts.ContainsKey($hostname)) {
+            "127.0.0.1`t$hostname"
         }
     }
 )

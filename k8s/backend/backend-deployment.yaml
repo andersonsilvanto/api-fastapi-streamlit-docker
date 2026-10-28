@@ -41,11 +41,47 @@ spec:
             - name: http
               containerPort: 8000
           env:
-            - name: DATABASE_URL
+            - name: APP_ENV
+              valueFrom:
+                secretKeyRef:
+                  name: backend-auth
+                  key: APP_ENV
+            - name: AUTH_DEFAULT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-auth
+                  key: AUTH_DEFAULT_USERNAME
+            - name: AUTH_DEFAULT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-auth
+                  key: AUTH_DEFAULT_PASSWORD
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: postgres-credentials
-                  key: DATABASE_URL
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_DB
+            - name: DATABASE_URL
+              value: postgresql+psycopg2://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-auth
+                  key: JWT_SECRET_KEY
+            - name: JWT_ISSUER
+              value: agrotech-enterprise
+            - name: JWT_AUDIENCE
+              value: agrotech-api
             - name: OPENSEARCH_ENABLED
               value: "true"
             - name: OPENSEARCH_HOST
@@ -83,19 +119,3 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: backend
-  namespace: app
-  labels:
-    app: backend
-spec:
-  type: ClusterIP
-  selector:
-    app: backend
-  ports:
-    - name: http
-      port: 8000
-      targetPort: 8000

@@ -123,6 +123,14 @@ spec:
             - name: http
               containerPort: 3000
           env:
+            - name: GF_SERVER_ROOT_URL
+              value: http://localhost:3000/
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_SECURITY_COOKIE_SECURE
+              value: "false"
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:
                 secretKeyRef:
@@ -173,19 +181,3 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: grafana-data
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: grafana
-  namespace: app
-  labels:
-    app: grafana
-spec:
-  type: ClusterIP
-  selector:
-    app: grafana
-  ports:
-    - name: http
-      port: 3000
-      targetPort: 3000

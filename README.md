@@ -59,6 +59,36 @@ estão com estado `UP`. Também pode consultar diretamente
 `http_requests_in_progress` e `http_exceptions_total` na interface do
 Prometheus.
 
+### Autenticação JWT da API
+
+O endpoint `POST /auth/login` valida as credenciais e retorna um JWT Bearer
+assinado com HS256, claims `sub`, `iat`, `exp`, `iss`, `aud` e scopes
+`items:read`/`items:write`. `GET /items/` e `POST /items/` verificam assinatura,
+expiração, emissor, audience e scope. `POST /auth/change-password` exige a
+senha atual e uma senha que satisfaça a política; após a troca, a API emite um
+token com `must_change_password=false`. Enquanto a flag estiver ativa, as
+rotas de itens respondem `428`; tokens ausentes ou inválidos recebem `401` e
+scope insuficiente recebe `403`. `/`, `/docs` e `/metrics` continuam
+disponíveis para probes e scrape.
+
+Em desenvolvimento local, `.env` define deliberadamente os valores de teste
+`admin` / `1234` e `admin_secret_key_123`. A aplicação limita essa chave curta
+ao `APP_ENV=development`; não use essa configuração fora de uma máquina de
+teste local. Para qualquer ambiente não-local, configure um segredo aleatório
+de pelo menos 32 caracteres:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+`JWT_ISSUER` e `JWT_AUDIENCE` precisam corresponder à configuração do serviço.
+Não adicione tokens ou segredos reais ao repositório. Em Kubernetes, use
+`.\k8s\create-secrets.ps1` para gerar Secrets; a opção
+`-DevelopmentDefaults` só é permitida em cluster local e deve ser usada apenas
+sem exposição externa. A UI solicita login, mostra um diálogo obrigatório para
+troca da senha inicial e mantém o token apenas na sessão Streamlit. Em
+produção, use um IdP e secret manager apropriados.
+
 ### Métricas AgroTech Enterprise (demonstração)
 
 A API também publica `agro_http_requests_total` e
@@ -72,8 +102,17 @@ para São Paulo e Mato Grosso, não medições de dispositivos físicos.
 
 O dashboard provisionado `AgroTech Enterprise - API and Edge` pode ser aberto
 no Grafana do `app_v2` em <http://localhost:3001>. Para popular as séries de
-requisições, gere tráfego com `python scripts/generate_traffic.py` e aguarde
-um scrape. Consultas de exemplo:
+requisições, gere tráfego com um JWT autorizado e aguarde um scrape. Para que
+GET/POST de itens sejam aceites, o token deve ter os dois scopes:
+
+```powershell
+$env:API_BEARER_TOKEN = "<JWT autorizado pelo provedor de identidade>"
+python scripts/generate_traffic.py
+Remove-Item Env:API_BEARER_TOKEN
+```
+
+Sem token, as tentativas em `/items/` recebem `401`, que também aparece nas
+métricas HTTP; o script não cria itens. Consultas PromQL de exemplo:
 
 ```promql
 sum by (endpoint, status_code) (rate(agro_http_requests_total[5m]))
@@ -211,6 +250,21 @@ docker compose ps
 docker inspect --format='{{.State.Health.Status}}' fastapi_app_v2
 ```
 
+Execute o smoke test PowerShell na raiz de `app_v2` depois de iniciar a stack
+com `docker compose up -d`. Ele verifica configuração Compose, ligação SQL ao
+PostgreSQL, FastAPI, Streamlit, saúde do Prometheus/Grafana/OpenSearch e o
+estado dos targets de scrape:
+
+```powershell
+.\smoke-test.ps1
+```
+
+O script termina com código diferente de zero e identifica cada verificação
+com falha. Para diagnosticar, consulte `docker compose ps` e
+`docker compose logs --tail 100 <servico>`; ajuste a configuração ou o serviço
+indicado e execute o teste novamente. O script informa a falha, mas não
+modifica automaticamente configurações nem dados da aplicação.
+
 No Kubernetes, os Deployments de backend, frontend, Prometheus, Grafana,
 Postgres Exporter, OpenSearch e OpenSearch Dashboards têm probes de readiness
 e liveness. A readiness probe só encaminha tráfego para pods prontos; a
@@ -219,6 +273,16 @@ os detalhes com `kubectl describe pod -n app <pod>`.
 
 ## Kubernetes local
 
-Para criar um cluster kind e executar os serviços com manifests Kubernetes,
-consulte o [guia de Kubernetes local](./k8s/README.md) e o
-[guia de Istio/Kiali](./README_k8s.md).
+Para executar em Kubernetes local (kind, Minikube ou Kubernetes do Docker
+Desktop), entre na pasta `app_v2`, prepare/carregue as imagens e aplique a
+stack. Crie os Secrets de forma interativa com `.\k8s\create-secrets.ps1`,
+depois execute `kubectl apply -k k8s`. No Windows, também pode executar
+`k8s\create-secrets.ps1` cria credenciais de forma interativa e
+`k8s\deploy-k8s.bat` aplica os recursos internos e lista os pods. A pasta
+[k8s/](./k8s/) contém PVCs, Deployments, Services, Prometheus, Grafana,
+PostgreSQL e Ingress. Para um endereço público num provedor cloud, publique as
+imagens num registry, configure um Ingress Controller, domínio/DNS e TLS. O
+Ingress opcional publica a API com JWT e Grafana com login; Prometheus e
+PostgreSQL permanecem privados. Consulte o
+[guia Kubernetes](./k8s/README.md) e o [guia Istio/Kiali](./README_k8s.md)
+para detalhes de instalação e validação.

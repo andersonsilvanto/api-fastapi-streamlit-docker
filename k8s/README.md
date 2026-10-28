@@ -40,29 +40,69 @@ docker build -t app-v2-frontend:local -f Dockerfile.frontend .
 kind load docker-image app-v2-backend:local app-v2-frontend:local --name app-v2
 ```
 
-## Aplicar os manifestos
+## Executar localmente ou na cloud
 
-Execute os comandos abaixo na raiz do projeto. Os recursos são aplicados em
-ordem para criar primeiro o namespace e as dependências:
+Em Docker Desktop, ative Kubernetes em Settings/Kubernetes e aguarde o cluster
+ficar pronto. Com Minikube, crie o cluster e ative o Ingress NGINX:
 
 ```powershell
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/config/
-kubectl apply -f k8s/postgres/
-kubectl apply -f k8s/logging/
-kubectl apply -f k8s/backend/
-kubectl apply -f k8s/frontend/
-kubectl apply -f k8s/monitoring/
+minikube start
+minikube addons enable ingress
 ```
 
-Antes de aplicar em qualquer ambiente, substitua
-`REPLACE_WITH_STRONG_PASSWORD` em `k8s/config/grafana-secret.yaml` por uma
-palavra-passe forte. O valor versionado é apenas um marcador, não uma
-credencial utilizável.
+Confirme o contexto antes de aplicar. Primeiro crie Secrets fora do
+repositório. O script solicita PostgreSQL, Grafana e JWT:
 
-O Secret do PostgreSQL é criado junto com `postgres.yaml`; ele contém
-credenciais de laboratório em texto no manifesto. Em ambientes reais, use um
-gestor de segredos e configure criptografia de Secrets no control plane.
+```powershell
+kubectl config current-context
+.\k8s\create-secrets.ps1
+```
+
+O script solicita palavras-passe sem as ecoar, cria Secrets Kubernetes em
+memória e não grava credenciais em ficheiros. O bundle Kustomize não inclui
+os manifestos modelo `*-secret.yaml`; esses ficheiros contêm apenas
+placeholders e servem de referência. Depois, aplique a stack interna:
+
+Para testes locais isolados, é possível usar os valores fracos predefinidos
+com confirmação explícita: `.\k8s\create-secrets.ps1 -DevelopmentDefaults`.
+O script só aceita esse modo em contextos kind, Minikube ou Docker Desktop;
+não use esse cluster com Ingress, redes públicas nem dados reais.
+
+```powershell
+kubectl apply -k k8s
+kubectl get pods,services,ingress,pvc -n app
+```
+
+No Windows, execute `k8s\deploy-k8s.bat` depois de criar os Secrets. O script
+confirma o contexto, aplica os recursos internos via Kustomize e mostra o
+estado dos pods; aplica o Ingress apenas se já existir o Secret TLS
+`agrotech-tls`. Antes do deploy, construa e carregue as imagens locais como
+descrito acima. No Minikube, use `minikube image load` para carregar as
+imagens; para Docker Desktop Kubernetes, assegure que o cluster consegue
+aceder às imagens locais.
+
+Num provedor de cloud, publique as imagens num registry acessível pelo cluster
+e atualize `image`/`imagePullPolicy` nos Deployments. Instale ou associe um
+Ingress Controller, use domínio próprio, configure DNS para o endereço do
+Ingress e crie o Secret TLS. Os hostnames `*.example.com` no manifesto são
+marcadores de exemplo, não endereços públicos funcionais.
+
+`postgres/postgres-secret.yaml`, `backend/backend-auth-secret.yaml` e
+`config/grafana-secret.yaml` são modelos para leitura: nunca aplique nem
+preencha esses ficheiros com credenciais versionáveis. `create-secrets.ps1`
+envia os valores como dados base64 em memória para a API Kubernetes, sem
+salvá-los em arquivos. Base64 não é encriptação: configure RBAC mínimo e
+encryption-at-rest para Secrets; em cloud, prefira External Secrets/Secret
+Manager. O StatefulSet obtém suas credenciais de `postgres-credentials` e usa
+o PVC `postgres-data-postgres-0`, definido em `postgres-pvc.yaml`.
+
+O Secret JWT provisionado contém somente a chave de verificação HS256; um
+provedor de identidade confiável deve emitir os tokens com o mesmo emissor,
+audience e scopes. Não existe endpoint de emissão de tokens na aplicação.
+
+Se o PVC já tiver dados, mudar o Secret não muda automaticamente a senha
+gravada no PostgreSQL. Faça a rotação do role no banco com a credencial atual
+antes de substituir o Secret, preservando o volume e validando a conexão.
 
 Espere os workloads principais ficarem prontos e inspecione o estado:
 
@@ -76,6 +116,40 @@ kubectl rollout status --namespace app deployment/grafana --timeout=180s
 kubectl rollout status --namespace app deployment/postgres-exporter --timeout=180s
 kubectl get pods,services,pvc -n app
 ```
+
+## Acesso externo com Ingress
+
+`k8s/ingress.yaml` (opcional, aplicado pelo script apenas após existir o
+Secret TLS) publica o frontend autenticado, as rotas `/auth` e `/items` da API
+e o Grafana por HTTPS, usando `agrotech.example.com`,
+`api.agrotech.example.com` e `grafana.agrotech.example.com` como hostnames de
+exemplo. A API exige JWT com scope por rota e o Grafana mantém autenticação
+nativa, cadastro desativado e cookies Secure. A porta de métricas não é
+roteada pelo Ingress.
+Para acesso pela Internet, instale um controller compatível com a classe
+`nginx`, substitua os
+hostnames pelos domínios que controla, aponte os registos DNS para o endereço
+público do controller e crie o Secret TLS `agrotech-tls` no namespace `app`.
+Atualize também `GF_SERVER_ROOT_URL` em
+`k8s/monitoring/grafana-deployment.yaml` para `https://<seu-host-grafana>/`
+e defina `GF_SECURITY_COOKIE_SECURE` como `"true"` antes de publicar.
+O manifesto sozinho não instala o controller, configura DNS ou emite
+certificados.
+
+Antes de publicar, use uma camada adicional como Cloudflare Access em torno
+do Grafana. PostgreSQL e Prometheus têm Services ClusterIP e não são
+publicados pelo Ingress; a política de rede do PostgreSQL restringe conexões
+aos pods backend e postgres-exporter (requer CNI com suporte a NetworkPolicy).
+Para desenvolvimento local, use port-forward:
+
+```powershell
+kubectl port-forward -n app service/backend 8000:8000
+kubectl port-forward -n app service/grafana 3000:3000
+kubectl port-forward -n app service/prometheus 9090:9090
+```
+
+Depois, aceda a `http://localhost:8000/docs`,
+`http://localhost:3000` e `http://localhost:9090`.
 
 O backend aguarda o PostgreSQL via init container. As tabelas são criadas pelo
 aplicativo no startup. O OpenSearch pode levar mais tempo para inicializar:

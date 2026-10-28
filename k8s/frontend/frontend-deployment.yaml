@@ -23,6 +23,8 @@ spec:
             - name: http
               containerPort: 8501
           env:
+            - name: APP_ENV
+              value: production
             - name: API_BASE_URL
               value: http://backend:8000
           readinessProbe:

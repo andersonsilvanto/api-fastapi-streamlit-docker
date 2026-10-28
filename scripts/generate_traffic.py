@@ -1,5 +1,6 @@
 import argparse
 import itertools
+import os
 import time
 import uuid
 from collections import Counter
@@ -33,12 +34,20 @@ def build_requests(run_id: str, sequence: int) -> tuple[TrafficRequest, ...]:
     )
 
 
-def send_request(base_url: str, request: TrafficRequest) -> tuple[int | None, str | None]:
+def send_request(
+    base_url: str,
+    request: TrafficRequest,
+    bearer_token: str | None,
+) -> tuple[int | None, str | None]:
     try:
+        headers = {}
+        if bearer_token and request.path.startswith("/items"):
+            headers["Authorization"] = f"Bearer {bearer_token}"
         response = requests.request(
             request.method,
             f"{base_url}{request.path}",
             json=request.payload,
+            headers=headers,
             timeout=10,
         )
         return response.status_code, None
@@ -72,6 +81,11 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=4,
         help="Requisições concorrentes por lote (padrão: 4).",
+    )
+    parser.add_argument(
+        "--bearer-token",
+        default=os.getenv("API_BEARER_TOKEN"),
+        help="JWT com scopes items:read e items:write (ou API_BEARER_TOKEN).",
     )
     args = parser.parse_args()
     if args.duration_seconds <= 0 or args.interval_seconds < 0 or args.workers <= 0:
@@ -109,7 +123,14 @@ def main() -> int:
                                 "name": f"traffic-{run_id}-{sequence}",
                             },
                         )
-                    batch.append(executor.submit(send_request, args.base_url, operation))
+                    batch.append(
+                        executor.submit(
+                            send_request,
+                            args.base_url,
+                            operation,
+                            args.bearer_token,
+                        )
+                    )
 
                 for future in batch:
                     status_code, error = future.result()

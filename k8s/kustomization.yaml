@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - postgres/postgres-pvc.yaml
+  - postgres/postgres-network-policy.yaml
+  - postgres/postgres-deployment.yaml
+  - logging/opensearch.yaml
+  - logging/opensearch-dashboards.yaml
+  - backend/backend-deployment.yaml
+  - backend/backend-service.yaml
+  - backend/backend-network-policy.yaml
+  - frontend/frontend-deployment.yaml
+  - monitoring/grafana-deployment.yaml
+  - monitoring/grafana-service.yaml
+  - monitoring/postgres-exporter.yaml
+  - monitoring/prometheus-config.yaml
+  - monitoring/prometheus-pvc.yaml
+  - monitoring/prometheus-deployment.yaml
+  - monitoring/prometheus-service.yaml
+  - monitoring/prometheus-network-policy.yaml

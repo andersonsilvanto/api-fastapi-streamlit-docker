@@ -1,36 +1,3 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-config
-  namespace: app
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 15s
-      evaluation_interval: 15s
-
-    scrape_configs:
-      - job_name: fastapi
-        metrics_path: /metrics
-        static_configs:
-          - targets: ["backend:8000"]
-
-      - job_name: postgres
-        static_configs:
-          - targets: ["postgres-exporter:9187"]
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: prometheus-data
-  namespace: app
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 2Gi
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -92,19 +59,3 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: prometheus-data
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: prometheus
-  namespace: app
-  labels:
-    app: prometheus
-spec:
-  type: ClusterIP
-  selector:
-    app: prometheus
-  ports:
-    - name: http
-      port: 9090
-      targetPort: 9090

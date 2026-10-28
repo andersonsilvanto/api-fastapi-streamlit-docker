@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-devops_v2_db}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata_v2:/var/lib/postgresql/data
     healthcheck:
@@ -25,9 +25,12 @@ services:
     container_name: fastapi_app_v2
     restart: unless-stopped
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     environment:
+      APP_ENV: ${APP_ENV:-development}
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db_v2:5432/${POSTGRES_DB:-devops_v2_db}
+      AUTH_DEFAULT_USERNAME: ${AUTH_DEFAULT_USERNAME:-admin}
+      AUTH_DEFAULT_PASSWORD: ${AUTH_DEFAULT_PASSWORD:-1234}
       OPENSEARCH_ENABLED: "true"
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_PORT: "9200"
@@ -35,6 +38,9 @@ services:
       OPENSEARCH_USER: ${OPENSEARCH_USER:-}
       OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:-}
       OPENSEARCH_INDEX: logs-app-v2
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-admin_secret_key_123}
+      JWT_ISSUER: ${JWT_ISSUER:-agrotech-enterprise}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-agrotech-api}
     depends_on:
       db_v2:
         condition: service_healthy
@@ -60,9 +66,10 @@ services:
     container_name: streamlit_app_v2
     restart: unless-stopped
     ports:
-      - "8502:8501"
+      - "127.0.0.1:8502:8501"
     environment:
       API_BASE_URL: http://backend_v2:8000
+      APP_ENV: ${APP_ENV:-development}
     depends_on:
       backend_v2:
         condition: service_healthy
@@ -97,7 +104,7 @@ services:
       - "--web.enable-lifecycle"
       - "--enable-feature=remote-write-receiver"
     ports:
-      - "9091:9090"
+      - "127.0.0.1:9091:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -133,7 +140,7 @@ services:
       DISABLE_SECURITY_PLUGIN: "true"
       OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
     ports:
-      - "9201:9200"
+      - "127.0.0.1:9201:9200"
     expose:
       - "9600"
     healthcheck:
@@ -150,7 +157,7 @@ services:
       OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
     ports:
-      - "5602:5601"
+      - "127.0.0.1:5602:5601"
     depends_on:
       opensearch:
         condition: service_started
@@ -159,7 +166,7 @@ services:
     image: grafana/grafana:latest
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
