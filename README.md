@@ -61,6 +61,10 @@ Prometheus.
 
 ### Autenticação JWT da API
 
+Consulte o [relatório técnico de autenticação e política de senhas](docs/RELATORIO-TECNICO-AUTENTICACAO.md)
+para o índice dos componentes, diferenças entre desenvolvimento e produção e
+comandos para reproduzir os testes.
+
 O endpoint `POST /auth/login` valida as credenciais e retorna um JWT Bearer
 assinado com HS256, claims `sub`, `iat`, `exp`, `iss`, `aud` e scopes
 `items:read`/`items:write`. `GET /items/` e `POST /items/` verificam assinatura,
