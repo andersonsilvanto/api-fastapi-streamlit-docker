@@ -56,5 +56,33 @@ services:
     volumes:
       - ./:/app
 
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: db_v2:5432/${POSTGRES_DB:-devops_v2_db}?sslmode=disable
+      DATA_SOURCE_USER: ${POSTGRES_USER:-postgres}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:-postgres}
+    depends_on:
+      db_v2:
+        condition: service_healthy
+    expose:
+      - "9187"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      backend_v2:
+        condition: service_healthy
+      postgres-exporter:
+        condition: service_started
+
 volumes:
   pgdata_v2:
+  prometheus_data:

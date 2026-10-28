@@ -4,6 +4,7 @@ from typing import List
 
 from backend import models, schemas
 from backend.database import engine, get_db
+from backend.metrics import setup_metrics
 
 # Cria as tabelas na base de dados automaticamente
 models.Base.metadata.create_all(bind=engine)
@@ -13,6 +14,7 @@ app = FastAPI(
     version="2.0.0",
     description="API do projeto app_v2 isolada via Docker Compose"
 )
+setup_metrics(app)
 
 @app.get("/")
 def read_root():
