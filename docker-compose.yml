@@ -28,9 +28,18 @@ services:
       - "8001:8000"
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db_v2:5432/${POSTGRES_DB:-devops_v2_db}
+      OPENSEARCH_ENABLED: "true"
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_PORT: "9200"
+      OPENSEARCH_SCHEME: http
+      OPENSEARCH_USER: ${OPENSEARCH_USER:-}
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:-}
+      OPENSEARCH_INDEX: logs-app-v2
     depends_on:
       db_v2:
         condition: service_healthy
+      opensearch:
+        condition: service_started
     volumes:
       - ./:/app
     healthcheck:
@@ -83,6 +92,46 @@ services:
       postgres-exporter:
         condition: service_started
 
+  opensearch:
+    image: opensearchproject/opensearch:2
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9201:9200"
+    expose:
+      - "9600"
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2
+    restart: unless-stopped
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "5602:5601"
+    depends_on:
+      opensearch:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./grafana/provisioning/:/etc/grafana/provisioning/:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+
 volumes:
   pgdata_v2:
   prometheus_data:
+  grafana_data:
